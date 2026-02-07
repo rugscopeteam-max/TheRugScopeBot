@@ -44,7 +44,7 @@ logger = logging.getLogger("TheRugScopeBot")
 # --- STATES ---
 WAITING_FOR_WALLET = 1
 
-# --- REPORT FORMATTING (GÖRSEL DÜZELTME YAPILDI) ---
+# --- REPORT FORMATTING ---
 
 def format_premium_report(data: dict, mint: str) -> str:
     """
@@ -81,7 +81,7 @@ def format_premium_report(data: dict, mint: str) -> str:
 
     trend_cause = verdict.get('correlation_verdict', 'Neutral')
 
-    # 3. FİNAL ŞABLON (Senin İstediğin Format)
+    # 3. FİNAL ŞABLON
     return (
         f"🛡️ **INSTITUTIONAL RISK REPORT**\n"
         f"**Ref:** `{mint}`\n\n"
@@ -276,7 +276,8 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('upgrade', upgrade_start)],
         states={WAITING_FOR_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_wallet)]},
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[CommandHandler('cancel', cancel)],
+        allow_reentry=True # <-- İŞTE BURAYA EKLENDİ
     )
 
     application.add_handler(CommandHandler('start', start))
