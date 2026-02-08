@@ -48,7 +48,7 @@ WAITING_FOR_WALLET = 1
 
 def format_premium_report(data: dict, mint: str) -> str:
     """
-    Premium Rapor: Eski detaylı ve bullet-point'li yapıya geri dönüldü.
+    Premium Rapor: Detaylı ve bullet-point'li yapı.
     """
     struct = data.get("structural", {})
     sec = data.get("security", {})
@@ -144,7 +144,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_icon = "💎 Premium" if perm["type"] in ["Premium", "Admin"] else "👤 Free Plan"
     
     msg = (
-        f"🤖 **TheRugScopeBot v2.9**\n"
+        f"🤖 **TheRugScopeBot v2.9.1**\n"
         f"**Account Status:** `{status_icon}`\n\n"
         "Welcome to the institutional-grade risk analysis tool for Solana.\n"
         "We detect what DexScreener hides.\n\n"
@@ -275,9 +275,16 @@ if __name__ == '__main__':
     
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('upgrade', upgrade_start)],
-        states={WAITING_FOR_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_wallet)]},
-        fallbacks=[CommandHandler('cancel', cancel)],
-        allow_reentry=True # <-- İŞTE BURAYA EKLENDİ
+        states={
+            WAITING_FOR_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_wallet)]
+        },
+        fallbacks=[
+            CommandHandler('cancel', cancel),
+            # YENİ EKLENTİ: Fallback içine upgrade komutunu da ekledik.
+            # Bu sayede kullanıcı takılsa bile bu komut onu kurtarır.
+            CommandHandler('upgrade', upgrade_start) 
+        ],
+        allow_reentry=True
     )
 
     application.add_handler(CommandHandler('start', start))
@@ -285,5 +292,5 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('check', check))
     application.add_handler(conv_handler)
     
-    logger.info("🚀 TheRugScopeBot v2.9 Interface Online.")
+    logger.info("🚀 TheRugScopeBot v2.9.1 Interface Online.")
     application.run_polling()
