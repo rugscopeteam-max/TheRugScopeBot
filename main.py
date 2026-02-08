@@ -23,7 +23,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 API_URL = "http://127.0.0.1:8000"
 MASTER_WALLET = "GkbSGWwSuiYDddMpM72NVQWFgLny3W1Yh3WxwoA3kY8D"
-SUPPORT_EMAIL = "rugscope.team@gmail.com"  # Mail adresin
+SUPPORT_EMAIL = "rugscope.team@gmail.com"
 
 try:
     admin_env = os.getenv("ADMIN_IDS", "")
@@ -47,9 +47,7 @@ WAITING_FOR_WALLET = 1
 # --- REPORT FORMATTING ---
 
 def format_premium_report(data: dict, mint: str) -> str:
-    """
-    Premium Rapor: Detaylı ve bullet-point'li yapı.
-    """
+    """Premium Rapor Formatı"""
     struct = data.get("structural", {})
     sec = data.get("security", {})
     whale = data.get("whale_metrics", {})
@@ -57,7 +55,6 @@ def format_premium_report(data: dict, mint: str) -> str:
     verdict = data.get("verdict", {})
     metrics = struct.get("metrics", {})
 
-    # 1. Risk Rozeti
     risk_level = verdict.get("risk_intensity", "Medium")
     badge = "🟡 MEDIUM RISK"
     if risk_level == "Low": badge = "🟢 LOW RISK"
@@ -67,7 +64,6 @@ def format_premium_report(data: dict, mint: str) -> str:
     if sec.get("mint_authority"): badge = "⛔ CRITICAL (MINTABLE)"
     if whale.get("bundle_detected"): badge = "⛔ CRITICAL (BUNDLE)"
 
-    # 2. Metin Hazırlıkları
     mint_auth = "✅ Safe" if not sec.get("mint_authority") else "⚠️ **RISK: Mintable**"
     
     bundle_txt = "✅ Clean"
@@ -81,40 +77,31 @@ def format_premium_report(data: dict, mint: str) -> str:
 
     trend_cause = verdict.get('correlation_verdict', 'Neutral')
 
-    # 3. FİNAL ŞABLON
     return (
         f"🛡️ **INSTITUTIONAL RISK REPORT**\n"
         f"**Ref:** `{mint}`\n\n"
-        
         f"**RISK LEVEL:** {badge}\n"
         f"**SUPPLY SCORE:** {struct.get('score')}/100\n\n"
-        
         f"💰 **MARKET ACTION (1H)**\n"
         f"• Price: `{price_line}`\n"
         f"• MC: `${price.get('market_cap', 0):,.0f}`\n"
         f"• Trend Cause: `{trend_cause}`\n\n"
-        
         f"🕵️ **FORENSIC ANALYSIS**\n"
         f"• Bundles: {bundle_txt}\n"
         f"• Mint Auth: {mint_auth}\n\n"
-        
         f"📊 **DISTRIBUTION**\n"
         f"• Top 10 Hold: `{metrics.get('top10_percent', 0):.2f}%`\n"
         f"• HHI Score: `{metrics.get('hhi_estimate', 'N/A')}`\n\n"
-        
         f"🐋 **WHALE ACTIVITY**\n"
         f"• Pressure: `{whale.get('pressure', 'Neutral')}`\n"
         f"• Flow: `{whale.get('net_flow_percent_supply', 0):.2f}%`\n\n"
-        
         f"📝 **VERDICT**\n"
         f"{verdict.get('verdict_label')}\n"
         f"_{verdict.get('verdict_description')}_"
     )
 
 def format_free_report(data: dict, mint: str, usage: int) -> str:
-    """
-    Free Rapor: Teaser formatı.
-    """
+    """Free Rapor Formatı"""
     struct = data.get("structural", {})
     price = data.get("price_data", {})
     p_emoji = "📈" if price.get("price_change_1h", 0) >= 0 else "📉"
@@ -122,19 +109,60 @@ def format_free_report(data: dict, mint: str, usage: int) -> str:
     return (
         f"🛡️ **BASIC RISK REPORT**\n"
         f"**Ref:** `{mint}`\n\n"
-        
         f"💰 **PRICE:** ${price.get('price_usd', 0):.6f} ({p_emoji} {price.get('price_change_1h', 0):.2f}%)\n"
         f"**SUPPLY SCORE:** {struct.get('score')}/100\n\n"
-        
         f"🔒 **PREMIUM INSIGHTS LOCKED:**\n"
         f"• 🧠 Trend Causality (Whale vs Community)\n"
         f"• 🕵️ Insider Bundle Detection\n"
         f"• 🔒 Full Security Audit\n\n"
-        
         f"💡 _Upgrade to unlock forensic tools._\n"
         f"📉 **Daily Usage:** {usage}/5\n"
         f"👉 `/upgrade`"
     )
+
+# --- ADMIN COMMANDS (YENİ EKLENDİ) ---
+
+async def admin_add_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Sadece Adminlerin kullanabileceği manuel yetki verme komutu.
+    Kullanım: /addpremium <USER_ID> <GÜN>
+    Örnek: /addpremium 12345678 30
+    """
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        return # Admin değilse sessizce yoksay
+
+    try:
+        if len(context.args) < 2:
+            raise ValueError
+            
+        target_id = int(context.args[0])
+        days = int(context.args[1])
+        
+        # User Manager üzerinden yetki ver
+        expiry_date = user_manager.set_premium(target_id, days)
+        
+        # Admin'e bilgi ver
+        await update.message.reply_text(
+            f"✅ **ADMIN ACTION SUCCESS**\n"
+            f"User: `{target_id}`\n"
+            f"Plan: Premium ({days} days)\n"
+            f"Expires: `{expiry_date}`",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        
+        # Kullanıcıya Bildirim Gönder (Opsiyonel - Hata verirse admin işlemini bozmaz)
+        try:
+            await context.bot.send_message(
+                chat_id=target_id,
+                text=f"🎉 **Congratulations!**\n\nYour account has been upgraded to **PREMIUM** for {days} days by the admin team.\n\nEnjoy unrestricted access! 🕵️‍♂️",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        except Exception:
+            await update.message.reply_text("⚠️ User updated but notification failed (User might have blocked bot).")
+
+    except (IndexError, ValueError):
+        await update.message.reply_text("ℹ️ **Usage:** `/addpremium <User_ID> <Days>`", parse_mode=ParseMode.MARKDOWN)
 
 # --- COMMAND HANDLERS ---
 
@@ -144,7 +172,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_icon = "💎 Premium" if perm["type"] in ["Premium", "Admin"] else "👤 Free Plan"
     
     msg = (
-        f"🤖 **TheRugScopeBot v2.9.1**\n"
+        f"🤖 **TheRugScopeBot v2.9.3**\n"
         f"**Account Status:** `{status_icon}`\n\n"
         "Welcome to the institutional-grade risk analysis tool for Solana.\n"
         "We detect what DexScreener hides.\n\n"
@@ -157,29 +185,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Profesyonel Yardım Menüsü"""
     msg = (
         f"📚 **USER GUIDE & SUPPORT**\n\n"
-        
         "**1. HOW TO ANALYZE?**\n"
         "Send the token address (Mint ID) or use:\n"
         "`/check <Mint_Address>`\n\n"
-        
         "**2. RISK LEVELS EXPLAINED**\n"
         "🟢 **Low Risk:** Healthy distribution, no bundles.\n"
         "🟡 **Medium Risk:** Moderate concentration.\n"
         "🟠 **High Risk:** Whale dominance or suspicious flow.\n"
         "⛔ **Critical:** Insider Bundles, Mint Authority enabled, or Scam detected.\n\n"
-        
         "**3. PREMIUM FEATURES**\n"
         "• **Bundle Detection:** Finds linked wallets (Insiders).\n"
         "• **Causality:** Did a whale pump the price?\n"
         "• **Security:** Mint/Freeze authority checks.\n\n"
-        
         "**4. CONTACT & SUPPORT**\n"
         "For billing issues or bug reports:\n"
         f"📧 **Email:** `{SUPPORT_EMAIL}`\n\n"
-        
         "_TheRugScopeBot is an analysis tool, not financial advice._"
     )
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
@@ -211,7 +233,7 @@ async def check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await msg.edit_text("⚠️ **Scan Failed:** Please check the token address.")
 
-# --- UPGRADE FLOW (PROFESYONEL ÖDEME) ---
+# --- UPGRADE FLOW ---
 
 async def upgrade_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -273,16 +295,23 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == '__main__':
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     
+    # 1. Admin Handler Ekleme
+    application.add_handler(CommandHandler('addpremium', admin_add_premium))
+
+    # 2. Upgrade Handler Tanımı (Reentry Fix için)
+    upgrade_handler = CommandHandler('upgrade', upgrade_start)
+
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('upgrade', upgrade_start)],
+        entry_points=[upgrade_handler],
         states={
-            WAITING_FOR_WALLET: [MessageHandler(filters.TEXT & ~filters.COMMAND, receive_wallet)]
+            WAITING_FOR_WALLET: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_wallet),
+                upgrade_handler # Beklemede olsa bile upgrade komutunu kabul et
+            ]
         },
         fallbacks=[
             CommandHandler('cancel', cancel),
-            # YENİ EKLENTİ: Fallback içine upgrade komutunu da ekledik.
-            # Bu sayede kullanıcı takılsa bile bu komut onu kurtarır.
-            CommandHandler('upgrade', upgrade_start) 
+            upgrade_handler # Fallback olarak da upgrade kabul et
         ],
         allow_reentry=True
     )
@@ -292,5 +321,5 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('check', check))
     application.add_handler(conv_handler)
     
-    logger.info("🚀 TheRugScopeBot v2.9.1 Interface Online.")
+    logger.info("🚀 TheRugScopeBot v2.9.3 Interface Online.")
     application.run_polling()

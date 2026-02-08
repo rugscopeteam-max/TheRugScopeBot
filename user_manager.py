@@ -143,5 +143,27 @@ class UserManager:
         # Kritik veriyi diske yaz (Crash durumunda kaybolmasın)
         self._sync_usage()
 
+    # --- ADMIN FEATURES (EKLENDİ) ---
+
+    def set_premium(self, user_id: int, days: int) -> str:
+        """Bir kullanıcıya X günlüğüne Premium verir (Admin için)."""
+        uid = str(user_id)
+        expires_at = int(time.time()) + (days * 86400)
+        
+        self.premium_cache[uid] = {
+            "active": True,
+            "expires_at": expires_at,
+            "updated_at": int(time.time())
+        }
+        self._sync_premium()
+        return time.strftime('%Y-%m-%d', time.localtime(expires_at))
+
+    def remove_premium(self, user_id: int):
+        """Bir kullanıcının Premium yetkisini alır."""
+        uid = str(user_id)
+        if uid in self.premium_cache:
+            self.premium_cache[uid]["active"] = False
+            self._sync_premium()
+
 # Singleton Instance
 user_manager = UserManager()
